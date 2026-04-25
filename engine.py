@@ -13,7 +13,7 @@ class MetalJetDigitalTwin:
         self.motor = RecoaterMotor()   # NOU
         self.cycle_count = 0
 
-    def step_simulation(self, temp_c, humidity_contam, load, maintenance):
+    def step_simulation(self, temp_c, humidity_contam, load, maintenance, vibration):
         self.cycle_count += 1
         
         # 1. Update Rail primer (es veu afectat per la contaminació)
