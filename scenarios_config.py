@@ -2,7 +2,7 @@
 SCENARIOS = {
     1: {
         "name": "Normal (Laboratori)",
-        "base_temp": 25.0,
+        "base_temp": 20.0,
         "base_contam": 0.1,
         "load_profile": 10.0,
         "chaos_enabled": False
@@ -28,11 +28,4 @@ SCENARIOS = {
         "load_profile": 10.0,
         "chaos_enabled": False
     },
-    5: {
-        "name": "Caos (Shocks Aleatoris)",
-        "base_temp": 25.0,
-        "base_contam": 0.1,
-        "load_profile": 10.0,
-        "chaos_enabled": True # Activa l'enginyeria del caos
-    }
 }

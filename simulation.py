@@ -112,3 +112,44 @@ def run_scenario(scenario_id, config, total_cycles=150, use_dynamic_maintenance=
             break
             
     return historian
+
+def main():
+    # 1. Comprovar arguments del terminal
+    if len(sys.argv) != 2:
+        print("❌ Error d'ús. Has de passar el número d'escenari.")
+        print("➡️ Ús correcte: python3 simulation.py [0-5]")
+        print("   (0 = Tots els escenaris, 1..5 = Escenari específic)")
+        sys.exit(1)
+
+    try:
+        choice = int(sys.argv[1])
+    except ValueError:
+        print("❌ Error: L'argument ha de ser un número sencer entre 0 i 5.")
+        sys.exit(1)
+
+    all_data = []
+
+    # 2. Lògica d'execució segons l'opció triada
+    if choice == 0:
+        print("🌪️ EXECUTANT TOTS ELS ESCENARIS (Mode Batch Complet)")
+        for sc_id, sc_config in SCENARIOS.items():
+            all_data.extend(run_scenario(sc_id, sc_config))
+        output_file = "simulation_historian_ALL.csv"
+        
+    elif choice in SCENARIOS:
+        sc_config = SCENARIOS[choice]
+        all_data.extend(run_scenario(choice, sc_config))
+        output_file = f"simulation_historian_SCENARIO_{choice}.csv"
+        
+    else:
+        print(f"❌ Error: L'escenari {choice} no existeix.")
+        sys.exit(1)
+
+    # 3. Guardar el CSV resultant
+    df = pd.DataFrame(all_data)
+    df.to_csv(output_file, index=False)
+    print(f"\n💾 Dades guardades correctament a '{output_file}'")
+
+# AQUESTA ÉS LA LÍNIA MÀGICA QUE ARRENCA EL PROGRAMA
+if __name__ == "__main__":
+    main()

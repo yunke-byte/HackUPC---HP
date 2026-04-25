@@ -1,3 +1,3 @@
-Scenario,Cycle,Input_Temp,Input_Contam,Input_Load,Input_Maint,Rail_Health,Rail_Status,Motor_Health,Motor_Status,Recoater_Health,Recoater_Status,Nozzle_Health,Nozzle_Status,Heater_Health,Heater_Status
-Entorn Brut (Calor+Pols),1,40.0,0.8,10.0,0.5,0.828,FUNCTIONAL,1.0,FUNCTIONAL,0.999,FUNCTIONAL,0.287,CRITICAL,0.999,FUNCTIONAL
-Entorn Brut (Calor+Pols),2,40.0,0.8,10.0,0.76,0.708,DEGRADED,1.0,FUNCTIONAL,0.998,FUNCTIONAL,0.0,FAILED,0.997,FUNCTIONAL
+Scenario,Cycle,Input_Temp,Input_Contam,Input_Load,Input_Maint,Input_Vibration,Rail_Health,Rail_Status,Motor_Health,Motor_Status,Recoater_Health,Recoater_Status,Nozzle_Health,Nozzle_Status,Heater_Health,Heater_Status
+Entorn Brut (Calor+Pols),1,38.41,0.8,10.0,0.5,0.1,0.829,FUNCTIONAL,1.0,FUNCTIONAL,0.979,FUNCTIONAL,0.303,CRITICAL,0.999,FUNCTIONAL
+Entorn Brut (Calor+Pols),2,38.52,0.78,10.0,1.0,0.18,0.732,DEGRADED,1.0,FUNCTIONAL,0.963,FUNCTIONAL,0.0,FAILED,0.998,FUNCTIONAL

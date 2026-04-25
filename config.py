@@ -1,18 +1,18 @@
 # Paràmetres de configuració màgics
 # --- STATUS THRESHOLDS ---
 HEALTH_FUNCTIONAL = 0.80
-HEALTH_DEGRADED = 0.45
+HEALTH_DEGRADED = 0.5
 HEALTH_CRITICAL = 0.10
 
 # --- MAINTENANCE & LOAD GLOBALS ---
 MAINTENANCE_BASELINE = 2.0  # Formula base: (2.0 - maintenance_level)
 
 # --- RECOATER BLADE PARAMETERS ---
-RECOATER_ETA = 5000.0       # Vida útil característica (Weibull)
+RECOATER_ETA = 25000.0       # Vida útil característica (Weibull)
 RECOATER_BETA = 1.5         # Paràmetre de forma de desgast (Weibull)
 RECOATER_THICKNESS_BASE = 1.5
 RECOATER_THICKNESS_VAR = 0.5
-RECOATER_CONTAM_MULT = 2.5
+RECOATER_CONTAM_MULT = 1.25
 
 # --- HEATING ELEMENT PARAMETERS ---
 HEATER_PRE_EXP_FACTOR = 0.05    # Factor A d'Arrhenius
@@ -23,24 +23,24 @@ HEATER_RESISTANCE_VAR = 5.0
 KELVIN_OFFSET = 273.15
 
 # --- LINEAR GUIDE / RAIL PARAMETERS ---
-RAIL_DECAY_RATE = 0.003
-RAIL_CONTAM_MULT = 4.0
+RAIL_DECAY_RATE = 0.001
+RAIL_CONTAM_MULT = 1.5
 RAIL_BASE_FRICTION = 0.1
 RAIL_FRICTION_VAR = 0.5
 
 # --- RECOATER DRIVE MOTOR PARAMETERS ---
-MOTOR_ETA = 8000.0            # Vida útil característica (Weibull)
-MOTOR_BETA = 2.0              # Desgast ràpid un cop comença a fallar
+MOTOR_ETA = 25000.0            # Vida útil característica (Weibull)
+MOTOR_BETA = 1.5            # Desgast ràpid un cop comença a fallar
 MOTOR_OPTIMAL_TEMP = 30.0
 MOTOR_TEMP_STRESS_MULT = 0.02
-MOTOR_RAIL_PENALTY_MULT = 2.5 # Quant pateix el motor si el rail està malament
+MOTOR_RAIL_PENALTY_MULT = 1 # Quant pateix el motor si el rail està malament
 MOTOR_BASE_CURRENT = 2.5      # Amperes
 MOTOR_CURRENT_VAR = 4.0       # Augment de consum elèctric quan pateix
 
 # --- NOZZLE PLATE PARAMETERS ---
-NOZZLE_CASCADING_THRESH = 0.6   # Si el recoater baixa d'això, danya el nozzle
+NOZZLE_CASCADING_THRESH = 0.5   # Si el recoater baixa d'això, danya el nozzle
 NOZZLE_INTERNAL_CONTAM_MULT = 2.0
 NOZZLE_OPTIMAL_TEMP = 25.0
 NOZZLE_TEMP_STRESS_MULT = 0.01
-NOZZLE_CLOG_SCALE = 5.0
+NOZZLE_CLOG_SCALE = 0.02
 NOZZLE_MAX_CLOG = 100.0

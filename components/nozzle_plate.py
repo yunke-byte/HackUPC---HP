@@ -6,7 +6,7 @@ class NozzlePlate(Component):
         super().__init__("Nozzle Plate")
         self.clog_percentage = 0.0
         
-    def update(self, load, external_contamination, temp_celsius, maintenance, recoater_health):
+    def update(self, load, external_contamination, temp_celsius, maintenance, recoater_health, vibration):
         # FALLADA EN CASCADA: El Recoater espatllat genera brutícia interna
         internal_contamination = 0.0
         if recoater_health < config.NOZZLE_CASCADING_THRESH:

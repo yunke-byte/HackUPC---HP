@@ -23,11 +23,9 @@ class MetalJetDigitalTwin:
         metrics_motor = self.motor.update(load, temp_c, maintenance, self.rail.health)
         
         # 3. Update altres components
-        metrics_recoater = self.recoater.update(load, humidity_contam, maintenance)
+        metrics_recoater = self.recoater.update(load, humidity_contam, maintenance, vibration, temp_c)
         metrics_heater = self.heater.update(load, temp_c, maintenance)
-        metrics_nozzle = self.nozzle.update(load, humidity_contam, temp_c, maintenance, self.recoater.health)
-        
-        # 4. Construir Telemetria
+        metrics_nozzle = self.nozzle.update(load, humidity_contam, temp_c, maintenance, self.recoater.health, vibration)                
 # 4. Construir Telemetria
         return {
             "cycle": self.cycle_count,
