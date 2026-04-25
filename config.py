@@ -22,6 +22,21 @@ HEATER_BASE_RESISTANCE = 10.0
 HEATER_RESISTANCE_VAR = 5.0
 KELVIN_OFFSET = 273.15
 
+# --- LINEAR GUIDE / RAIL PARAMETERS ---
+RAIL_DECAY_RATE = 0.003
+RAIL_CONTAM_MULT = 4.0
+RAIL_BASE_FRICTION = 0.1
+RAIL_FRICTION_VAR = 0.5
+
+# --- RECOATER DRIVE MOTOR PARAMETERS ---
+MOTOR_ETA = 8000.0            # Vida útil característica (Weibull)
+MOTOR_BETA = 2.0              # Desgast ràpid un cop comença a fallar
+MOTOR_OPTIMAL_TEMP = 30.0
+MOTOR_TEMP_STRESS_MULT = 0.02
+MOTOR_RAIL_PENALTY_MULT = 2.5 # Quant pateix el motor si el rail està malament
+MOTOR_BASE_CURRENT = 2.5      # Amperes
+MOTOR_CURRENT_VAR = 4.0       # Augment de consum elèctric quan pateix
+
 # --- NOZZLE PLATE PARAMETERS ---
 NOZZLE_CASCADING_THRESH = 0.6   # Si el recoater baixa d'això, danya el nozzle
 NOZZLE_INTERNAL_CONTAM_MULT = 2.0
