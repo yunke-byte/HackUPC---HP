@@ -6,7 +6,7 @@ import math
 import json
 import google.generativeai as genai
 
-# --- PAGE CONFIG (ONLY ONCE, MUST BE FIRST STREAMLIT CALL) ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="MetalJet Digital Twin v1.2", layout="wide")
 
 # --- CORE ENGINE LOGIC ---
@@ -20,13 +20,12 @@ class Component:
         if self.health >= 0.80: return "OPTIMAL"
         elif self.health >= 0.40: return "DEGRADED"
         elif self.health >= 0.10: return "CRITICAL"
-        else: return "TOTAL FAILURE"
+        else: return "FAILED"
 
 class RecoaterBlade(Component):
     def __init__(self):
         super().__init__("Recoater Blade")
         self.eta, self.beta = 5000.0, 1.5
-
     def update(self, load, contamination, maintenance):
         stress_rate = load * (1.0 + (contamination * 2.5)) * (2.0 - maintenance)
         self.cumulative_stress += stress_rate
@@ -38,7 +37,6 @@ class HeatingElement(Component):
     def __init__(self):
         super().__init__("Heating Element")
         self.A, self.Ea_R = 0.05, 300.0
-
     def update(self, load, temp_celsius, maintenance):
         temp_kelvin = temp_celsius + 273.15
         lambda_rate = self.A * math.exp(-self.Ea_R / temp_kelvin)
@@ -51,7 +49,6 @@ class NozzlePlate(Component):
     def __init__(self):
         super().__init__("Nozzle Plate")
         self.clog_percentage = 0.0
-
     def update(self, load, external_contamination, temp_celsius, maintenance, recoater_health):
         internal_contamination = (0.6 - recoater_health) * 2.0 if recoater_health < 0.6 else 0.0
         total_contamination = external_contamination + internal_contamination
@@ -61,64 +58,95 @@ class NozzlePlate(Component):
         self.health = max(0.0, 1.0 - (self.clog_percentage / 100.0))
         return {"clog_percentage": round(self.clog_percentage, 1)}
 
-# --- SESSION STATE ---
-if 'twin' not in st.session_state:
-    st.session_state.twin = {
-        'recoater': RecoaterBlade(),
-        'heater': HeatingElement(),
-        'nozzle': NozzlePlate(),
-        'history': []
-    }
+# --- NEW COMPONENTS FROM SCENARIO ENGINE ---
 
-# --- SIDEBAR ---
+class RailSystem(Component):
+    def __init__(self):
+        super().__init__("Rail System")
+    def update(self, load, vibration, maintenance):
+        # High vibration and low maintenance accelerate mechanical wear
+        stress_rate = load * (1.0 + (vibration * 3.0)) * (2.0 - maintenance)
+        self.cumulative_stress += stress_rate * 0.0001
+        self.health = max(0.0, 1.0 - self.cumulative_stress)
+        return {"wear_coefficient": round(self.cumulative_stress, 4)}
+
+class Motor(Component):
+    def __init__(self):
+        super().__init__("Drive Motor")
+    def update(self, load, temp_celsius, vibration, maintenance):
+        # Thermal stress + mechanical vibration impact the motor windings
+        thermal_impact = max(1.0, temp_celsius / 40.0)
+        stress_rate = load * thermal_impact * (1.0 + vibration) * (2.0 - maintenance)
+        self.cumulative_stress += stress_rate * 0.00005
+        self.health = max(0.0, 1.0 - self.cumulative_stress)
+        return {"efficiency": round(self.health * 100, 1)}
+
+# --- UPDATED DIGITAL TWIN WRAPPER ---
+class MetalJetDigitalTwin:
+    def __init__(self):
+        self.recoater = RecoaterBlade()
+        self.heater = HeatingElement()
+        self.nozzle = NozzlePlate()
+        self.rail = RailSystem()
+        self.motor = Motor()
+        self.cycle_count = 0
+
+    def step_simulation(self, temp_c, humidity_contam, load, maintenance, vibration=0.1):
+        self.cycle_count += 1
+        
+        # Update each component
+        m_rec = self.recoater.update(load, humidity_contam, maintenance)
+        m_heat = self.heater.update(load, temp_c, maintenance)
+        m_noz = self.nozzle.update(load, humidity_contam, temp_c, maintenance, self.recoater.health)
+        m_rail = self.rail.update(load, vibration, maintenance)
+        m_motor = self.motor.update(load, temp_c, vibration, maintenance)
+
+        return {
+            "cycle": self.cycle_count,
+            "components": {
+                "Recoater": {"HealthIndex": self.recoater.health, "OperationalStatus": self.recoater.get_status()},
+                "Heater": {"HealthIndex": self.heater.health, "OperationalStatus": self.heater.get_status()},
+                "Nozzle": {"HealthIndex": self.nozzle.health, "OperationalStatus": self.nozzle.get_status()},
+                "Rail": {"HealthIndex": self.rail.health, "OperationalStatus": self.rail.get_status()},
+                "Motor": {"HealthIndex": self.motor.health, "OperationalStatus": self.motor.get_status()}
+            }
+        }
+
+# --- STREAMLIT UI INTEGRATION ---
+
+if 'twin' not in st.session_state:
+    st.session_state.twin = MetalJetDigitalTwin()
+    st.session_state.history = []
+
 with st.sidebar:
     st.header("Parameter Configuration")
+    temp_input = st.slider("Temperature (°C)", 10.0, 60.0, 25.0)
+    contam_input = st.slider("Contamination", 0.0, 1.0, 0.2)
+    load_input = st.number_input("Duty Load (Hours)", 1.0, 500.0, 100.0)
+    maint_input = st.select_slider("Maintenance", options=[0.0, 0.5, 1.0], value=1.0)
+    vibration_input = st.slider("System Vibration", 0.0, 1.0, 0.1)
 
-    temp_input = st.slider("Operating Temperature (°C)", 10.0, 60.0, 25.0, key="temp")
-    contam_input = st.slider("Contamination Coefficient", 0.0, 1.0, 0.2, key="contam")
-    load_input = st.number_input("Duty Cycle Load (Hours)", 1.0, 500.0, 100.0, key="load")
-    maint_input = st.select_slider(
-        "Maintenance Fidelity",
-        options=[0.0, 0.5, 1.0],
-        value=1.0,
-        key="maint"
-    )
+    if st.button("Commit Cycle Update ⏩"):
+        report = st.session_state.twin.step_simulation(
+            temp_input, contam_input, load_input, maint_input, vibration_input
+        )
+        
+        # Flatten for history
+        entry = {"Cycle": report["cycle"]}
+        for name, data in report["components"].items():
+            entry[f"{name}_Health"] = data["HealthIndex"]
+        st.session_state.history.append(entry)
 
-    if st.button("Commit Cycle Update ⏩", use_container_width=True):
-        twin = st.session_state.twin
-
-        m_rec = twin['recoater'].update(load_input, contam_input, maint_input)
-        m_heat = twin['heater'].update(load_input, temp_input, maint_input)
-        m_noz = twin['nozzle'].update(load_input, contam_input, temp_input, maint_input, twin['recoater'].health)
-
-        twin['history'].append({
-            "Cycle": len(twin['history']) + 1,
-            "Recoater_Health": twin['recoater'].health,
-            "Heater_Health": twin['heater'].health,
-            "Nozzle_Health": twin['nozzle'].health,
-            "Thickness": m_rec["thickness_mm"],
-            "Resistance": m_heat["resistance_ohms"],
-            "Clog": m_noz["clog_percentage"]
-        })
-
-    if st.button("System Reset 🔄", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
-# --- MAIN UI ---
-st.title("MetalJet Digital Twin")
+# --- TAB VIEW ---
 tab1, tab2 = st.tabs(["📊 System Telemetry", "🤖 AI Diagnostic Assistant"])
 
-# --- TAB 1 ---
 with tab1:
-    st.subheader("Reliability Trend Analysis")
-
-    if st.session_state.twin['history']:
-        df = pd.DataFrame(st.session_state.twin['history']).set_index("Cycle")
-        st.line_chart(df[["Recoater_Health", "Heater_Health", "Nozzle_Health"]])
+    if st.session_state.history:
+        df = pd.DataFrame(st.session_state.history).set_index("Cycle")
+        st.line_chart(df)
         st.dataframe(df.tail(5))
     else:
-        st.info("Awaiting telemetry...")
+        st.info("Awaiting telemetry data...")
 
 # --- GEMINI SETUP ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -126,38 +154,17 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     api_key = os.getenv("GEMINI_API_KEY")
 
-if not api_key:
-    st.error("API Key not found. Please set it in .streamlit/secrets.toml")
-else:
+if api_key:
     genai.configure(api_key=api_key)
-    # CHANGE THIS LINE: From 'gemini-1.5-flash' to 'gemini-2.5-flash'
     model = genai.GenerativeModel('gemini-2.5-flash')
 
-# --- TAB 2 ---
 with tab2:
     st.subheader("AI Diagnostic Assistant")
-
-    if not st.session_state.twin['history']:
+    if not st.session_state.history:
         st.warning("Run at least one cycle first.")
     else:
-        current_data = st.session_state.twin['history'][-1]
-
-        context_prompt = f"""
-        Analyze this telemetry data:
-
-        CURRENT:
-        {json.dumps(current_data, indent=2)}
-
-        HISTORY:
-        {json.dumps(st.session_state.twin['history'][-5:], indent=2)}
-        """
-
-        user_query = st.text_input("Ask something about the system:", key="ai_input")
-
+        user_query = st.text_input("Ask about the new Rail or Motor systems:")
         if user_query:
-            with st.spinner("Analyzing..."):
-                try:
-                    response = model.generate_content([context_prompt, user_query])
-                    st.write(response.text)
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            context = f"Latest Data: {json.dumps(st.session_state.history[-1])}"
+            response = model.generate_content([context, user_query])
+            st.write(response.text)
