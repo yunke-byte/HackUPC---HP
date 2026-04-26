@@ -4,91 +4,80 @@ import pandas as pd
 import plotly.graph_objects as go
 import google.generativeai as genai
 
-# --- 1. CONFIGURACIÓ DE LA PÀGINA ---
+# --- 1. WEBPAGE CONFIGURATION ---
 st.set_page_config(page_title="MetalJet Digital Twin v1.2", layout="wide")
-st.title("🖨️ HP Metal Jet S100 - Bessó Digital")
+st.title("HP Metal Jet S100 - Digital Twin")
 
-# --- 2. CÀRREGA DE DADES (Connexió amb Fase 2) ---
+# --- 2. DATA LOADING ---
 DATA_FOLDER = "output_data"
 
 if not os.path.exists(DATA_FOLDER):
-    st.error("❌ No s'ha trobat la carpeta 'output_data'. Executa 'python3 simulation.py 0' primer.")
+    st.error("'output_data' folder not found. Run 'python3 simulation.py 0'.")
     st.stop()
 
 csv_files = sorted([f for f in os.listdir(DATA_FOLDER) if f.endswith('.csv')])
 if not csv_files:
-    st.warning("⚠️ No hi ha cap CSV. Executa la simulació primer.")
+    st.warning("No .csv found. Run the simulation first.")
     st.stop()
 
 with st.sidebar:
-    st.header("📂 Base de Dades")
-    selected_file = st.selectbox("Selecciona un Escenari:", csv_files)
-    st.info("Aquestes dades provenen del motor de simulació híbrid (Física + IA) pre-calculat.")
+    st.header("Database")
+    selected_file = st.selectbox("Select a scenario:", csv_files)
 
-# Llegim les dades generades pel simulation.py
 df = pd.read_csv(os.path.join(DATA_FOLDER, selected_file))
 
-# --- 3. INTERFÍCIE PRINCIPAL (TABS) ---
-tab1, tab2 = st.tabs(["📊 Telemetria del Sistema", "🤖 Assistent IA (Gemini)"])
+# --- 3. UIX ---
+tab1, tab2 = st.tabs(["System telemetry", "AI assistant (Gemini)"])
 
 with tab1:
-    st.subheader(f"Anàlisi de l'escenari: {selected_file}")
+    st.subheader(f"Scenario analysis: {selected_file}")
     
     col1, col2 = st.columns(2)
-    
     with col1:
-        # Gràfic de Salut
         fig_health = go.Figure()
-        for comp in ["Rail", "Motor", "Recoater", "Nozzle", "Heater"]:
+        for comp in ["LinearGuide", "RecoaterMotor","RecoaterBlade","HeatingElement", "NozzlePlate"]:
             fig_health.add_trace(go.Scatter(x=df['Cycle'], y=df[f'{comp}_Health'], mode='lines', name=comp))
-        fig_health.update_layout(title="Degradació de Components", yaxis_title="Salut (0 a 1)")
+        fig_health.update_layout(title="Component degradation", yaxis_title="Health (0 to 1)")
         st.plotly_chart(fig_health, use_container_width=True)
 
     with col2:
-        # Gràfic d'Entorn i OEE
         fig_env = go.Figure()
-        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Maint'], name='Esforç Manteniment', line=dict(color='orange')))
-        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Load']/50, name='Càrrega Operativa (Relativa)', line=dict(color='blue')))
-        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Temp']/50, name='Temperatura (Relativa)', line=dict(color='red', dash='dot')))
-        fig_env.update_layout(title="Agent de Manteniment i OEE (Trade-off)", yaxis_title="Índex Relatiu")
+        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Maint'], name='Maintenance effort', line=dict(color='orange')))
+        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Load']/50, name='Relative operating load', line=dict(color='blue')))
+        fig_env.add_trace(go.Scatter(x=df['Cycle'], y=df['Input_Temp']/50, name='Relative temperature', line=dict(color='red', dash='dot')))
+        fig_env.update_layout(title="Maintenance Agent and OEE Trade-off", yaxis_title="Relative index")
         st.plotly_chart(fig_env, use_container_width=True)
         
     st.dataframe(df.tail(10), use_container_width=True)
 
-# --- 4. INTEGRACIÓ AMB GEMINI ---
+# --- 4. GEMINI INTEGRATION ---
 with tab2:
-    st.subheader("Assistent de Diagnòstic Intel·ligent")
+    st.subheader("Intelligent Diagnostic Assistant")
     
-    # Intentem carregar la clau de forma segura
     api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
     
     if not api_key:
-        st.warning("Introdueix la teva clau de Gemini als secrets de Streamlit per activar l'assistent.")
+        st.warning("Enter your Gemini API key in Streamlit secrets to activate the assistant.")
     else:
         genai.configure(api_key=api_key)
-        # Utilitzem un model actualitzat per a tasques generals de text
         model = genai.GenerativeModel('gemini-1.5-flash')
         
-        user_query = st.text_input("Fes una pregunta a l'assistent sobre les dades actuals:")
+        user_query = st.text_input("Ask the assistant about current data:")
         
         if user_query:
-            with st.spinner("L'assistent està analitzant la telemetria..."):
-                # Li passem a Gemini un resum estadístic de les dades + l'últim cicle
-                context_resum = df.describe().to_json()
-                context_ultim_cicle = df.iloc[-1].to_json()
-                
+            with st.spinner("Analyzing telemetry..."):
+                context_summary = df.describe().to_json()
+                context_last_cycle = df.iloc[-1].to_json()
                 prompt = f"""
-                Ets un enginyer expert en manteniment predictiu de HP Metal Jet.
-                Aquí tens un resum estadístic de l'escenari actual: {context_resum}
-                Aquest és l'estat del sistema just abans de fallar o acabar: {context_ultim_cicle}
-                
-                Pregunta de l'usuari: {user_query}
-                Respon de forma tècnica, concisa i utilitzant dades per justificar-ho.
+                You are an expert Maintenance Engineer for HP Metal Jet systems.
+                Here is a statistical summary of the current scenario: {context_summary}
+                This is the system state immediately before failure or completion: {context_last_cycle}
+                User Question: {user_query}
+                Provide a technical, concise response using data points to justify your analysis.
                 """
-                
                 try:
                     response = model.generate_content(prompt)
-                    st.success("Anàlisi completat:")
+                    st.success("Analysis completed:")
                     st.write(response.text)
                 except Exception as e:
-                    st.error(f"Error de connexió amb Gemini: {e}")
+                    st.error(f"Connection error with Gemini: {e}")
