@@ -1,155 +1,116 @@
 import sys
+import os
 import random
 import pandas as pd
 from engine import MetalJetDigitalTwin
 from scenarios_config import SCENARIOS
 
-def run_scenario(scenario_id, config, total_cycles=150, use_dynamic_maintenance=True):
-    # Fixem la llavor perquè sigui 100% determinista. 
-    # Sumem l'ID de l'escenari perquè cada escenari tingui la seva pròpia variació constant.
-    random.seed(254 + scenario_id) 
-    
+def run_scenario(scenario_id, config, total_cycles=200, use_dynamic_maintenance=True):
+    random.seed(254 + scenario_id)
     engine = MetalJetDigitalTwin()
     historian = []
     
-    print(f"\n🚀 Iniciant Escenari {scenario_id}: {config['name']} ({total_cycles} cicles)")
-    
-    # Valors inicials que aniran "caminant"
     current_temp = config['base_temp']
     current_contam = config['base_contam']
     
     for cycle in range(1, total_cycles + 1):
-        # ---------------------------------------------------------
-        # 1. DINÀMIQUES DE L'ENTORN (El Camí Aleatori)
-        # ---------------------------------------------------------
+        # 1. Dinamiques ambientals (Mean Reversion cap a 20 graus)
+        thermal_inertia = (config['base_temp'] - current_temp) * 0.15
+        current_temp += random.gauss(0.0, 1.0) + thermal_inertia
+        current_temp = max(10.0, min(current_temp, 50.0))
         
-        # A) Temperatura: Distribució Normal. Majoria de canvis entre -1 i 1. Màxim [-5, 5].
-        delta_temp = random.gauss(mu=0.0, sigma=1.5) 
-        delta_temp = max(-5.0, min(5.0, delta_temp)) # Tallem els extrems
-        current_temp += delta_temp
-        
-        # Límits físics de la sala perquè no arribi a -100ºC o +100ºC a la llarga
-        current_temp = max(10.0, min(current_temp, 50.0)) 
-        
-        # B) Manteniment Dinàmic (L'Agent)
-        current_maint = 0.5 
+        if config['chaos_enabled'] and random.random() < 0.03:
+            current_temp += 15.0
+            current_contam = min(1.0, current_contam + 0.5)
+
+        # 2. Agent de manteniment proporcional
+        current_maint = 0.5
         worst_health = min([
             engine.recoater.health, engine.heater.health, 
             engine.nozzle.health, engine.rail.health, engine.motor.health
         ])
         
         if use_dynamic_maintenance and worst_health < 0.80:
-            health_gap = 0.80 - worst_health
-            current_maint = min(1.0, current_maint + (health_gap * 1.5))
-            if cycle % 15 == 0: 
-                print(f"   🔧 [AGENT] Manteniment augmentat al {round(current_maint*100)}% (Salut: {round(worst_health*100)}%)")
+            maintenance_demand = 0.80 - worst_health
+            current_maint = min(0.90, 0.5 + (maintenance_demand * 1.2))
 
-        # C) Contaminació: Distribució Uniforme + Efecte Manteniment
-        # Si el manteniment és alt (>0.5), la sala es neteja. Si és baix (<0.5), s'acumula pols.
-        maint_impact = 0.5 - current_maint # Negatiu si es neteja, positiu si s'abandona
-        delta_contam = random.uniform(-0.02, 0.02) + (maint_impact * 0.05)
-        current_contam = max(0.0, min(1.0, current_contam + delta_contam))
+        # 3. Ajust de càrrega (OEE Trade-off)
+        # Es redueix la càrrega proporcionalment al manteniment realitzat
+        load_variance = random.uniform(0.85, 1.15)
+        theoretical_load = config['load_profile'] * load_variance
+        
+        if current_maint > 0.5:
+            downtime_ratio = (current_maint - 0.5) * 2.0
+            current_load = theoretical_load * (1.0 - downtime_ratio)
+        else:
+            current_load = theoretical_load
+        current_load = max(0.0, current_load)
 
-        # D) NOU FACTOR: Vibració Mecànica (Bucle de feedback)
-        # La vibració base és 0.1, però es dispara si el rail o el motor estan fallant.
-        rail_penalty = (1.0 - engine.rail.health) * 0.4
-        motor_penalty = (1.0 - engine.motor.health) * 0.4
-        current_vibration = 0.1 + random.uniform(0, 0.05) + rail_penalty + motor_penalty
-        current_vibration = min(1.0, current_vibration)
+        # 4. Feedback de vibracio i contaminacio
+        maint_efficiency = current_maint - 0.5
+        current_contam = max(0.0, min(1.0, current_contam + random.uniform(-0.02, 0.02) - (maint_efficiency * 0.1)))
+        
+        vibration_base = 0.1
+        rail_impact = (1.0 - engine.rail.health) * 0.5
+        vibration_feedback = vibration_base + rail_impact + random.uniform(0, 0.02)
+        current_vibration = min(1.0, vibration_feedback)
 
-        current_load = config['load_profile']
-
-        # ---------------------------------------------------------
-        # 2. ACTUALITZACIÓ DEL BESSÓ DIGITAL
-        # ---------------------------------------------------------
-        # **ATENCIÓ:** Hauràs d'afegir 'vibration' al step_simulation del teu engine.py
+        # 5. Actualitzacio del model (Fase 1)
         report = engine.step_simulation(
             temp_c=current_temp, 
             humidity_contam=current_contam, 
             load=current_load, 
-            maintenance=current_maint,
-            vibration=current_vibration # NOVA VARIABLE!
+            maintenance=current_maint, 
+            vibration=current_vibration
         )
         
-        # ---------------------------------------------------------
-        # 3. GUARDEM A L'HISTORIAL
-        # ---------------------------------------------------------
-        historian.append({
+        # 6. Captura de dades
+        log_entry = {
             "Scenario": config['name'],
             "Cycle": report["cycle"],
             "Input_Temp": round(current_temp, 2),
             "Input_Contam": round(current_contam, 2),
-            "Input_Load": current_load,
+            "Input_Load": round(current_load, 2),
             "Input_Maint": round(current_maint, 2),
-            "Input_Vibration": round(current_vibration, 2),
-            
-            "Rail_Health": round(report["components"]["LinearGuide"]["HealthIndex"], 3),
-            "Rail_Status": report["components"]["LinearGuide"]["OperationalStatus"],
-            
-            "Motor_Health": round(report["components"]["RecoaterMotor"]["HealthIndex"], 3),
-            "Motor_Status": report["components"]["RecoaterMotor"]["OperationalStatus"],
-            
-            "Recoater_Health": round(report["components"]["RecoaterBlade"]["HealthIndex"], 3),
-            "Recoater_Status": report["components"]["RecoaterBlade"]["OperationalStatus"],
-            
-            "Nozzle_Health": round(report["components"]["NozzlePlate"]["HealthIndex"], 3),
-            "Nozzle_Status": report["components"]["NozzlePlate"]["OperationalStatus"],
-            
-            "Heater_Health": round(report["components"]["HeatingElement"]["HealthIndex"], 3),
-            "Heater_Status": report["components"]["HeatingElement"]["OperationalStatus"],
-        })
+            "Input_Vibration": round(current_vibration, 2)
+        }
         
-        # Comprovació de fallada
-        statuses = [
-            report["components"]["LinearGuide"]["OperationalStatus"],
-            report["components"]["RecoaterMotor"]["OperationalStatus"],
-            report["components"]["RecoaterBlade"]["OperationalStatus"],
-            report["components"]["NozzlePlate"]["OperationalStatus"],
-            report["components"]["HeatingElement"]["OperationalStatus"]
-        ]
-        if "FAILED" in statuses:
-            print(f"   💥 FALLADA CRÍTICA al cicle {cycle}. Màquina aturada.")
+        for name, data in report["components"].items():
+            log_entry[f"{name}_Health"] = data["HealthIndex"]
+            log_entry[f"{name}_Status"] = data["OperationalStatus"]
+            
+        historian.append(log_entry)
+        
+        # Monitoritzacio de fallades per aturar la simulacio
+        if any(c["OperationalStatus"] == "FAILED" for c in report["components"].values()):
             break
             
     return historian
 
 def main():
-    # 1. Comprovar arguments del terminal
     if len(sys.argv) != 2:
-        print("❌ Error d'ús. Has de passar el número d'escenari.")
-        print("➡️ Ús correcte: python3 simulation.py [0-5]")
-        print("   (0 = Tots els escenaris, 1..5 = Escenari específic)")
         sys.exit(1)
 
     try:
         choice = int(sys.argv[1])
     except ValueError:
-        print("❌ Error: L'argument ha de ser un número sencer entre 0 i 5.")
         sys.exit(1)
 
-    all_data = []
+    os.makedirs("output_data", exist_ok=True)
+    all_results = []
 
-    # 2. Lògica d'execució segons l'opció triada
     if choice == 0:
-        print("🌪️ EXECUTANT TOTS ELS ESCENARIS (Mode Batch Complet)")
         for sc_id, sc_config in SCENARIOS.items():
-            all_data.extend(run_scenario(sc_id, sc_config))
-        output_file = "simulation_historian_ALL.csv"
-        
+            all_results.extend(run_scenario(sc_id, sc_config))
+        filename = "output_data/simulation_all_scenarios.csv"
     elif choice in SCENARIOS:
-        sc_config = SCENARIOS[choice]
-        all_data.extend(run_scenario(choice, sc_config))
-        output_file = f"simulation_historian_SCENARIO_{choice}.csv"
-        
+        all_results = run_scenario(choice, SCENARIOS[choice])
+        filename = f"output_data/scenario_{choice}_results.csv"
     else:
-        print(f"❌ Error: L'escenari {choice} no existeix.")
         sys.exit(1)
 
-    # 3. Guardar el CSV resultant
-    df = pd.DataFrame(all_data)
-    df.to_csv(output_file, index=False)
-    print(f"\n💾 Dades guardades correctament a '{output_file}'")
+    df = pd.DataFrame(all_results)
+    df.to_csv(filename, index=False)
 
-# AQUESTA ÉS LA LÍNIA MÀGICA QUE ARRENCA EL PROGRAMA
 if __name__ == "__main__":
     main()

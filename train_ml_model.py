@@ -10,15 +10,11 @@ def generate_training_data(samples=10000):
     np.random.seed(42)
     
     # Generem condicions aleatòries d'entorn
-    load = np.random.uniform(5, 50, samples)
+    load = np.random.uniform(1, 50, samples)
     contam = np.random.uniform(0.0, 1.0, samples)
     maint = np.random.uniform(0.0, 1.0, samples)
     vib = np.random.uniform(0.0, 1.0, samples)
-    temp = np.random.uniform(15.0, 45.0, samples)
-    
-    # FÓRMULA NO LINEAL SECRETA (El que l'ML haurà de descobrir)
-    # Imaginem que la física real fa que la vibració i la contaminació interactuïn de forma exponencial,
-    # i que la temperatura només afecti si passa de 35 graus.
+    temp = np.random.uniform(0.0, 40.0, samples)
     
     wear_rate = np.zeros(samples)
     for i in range(samples):
