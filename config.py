@@ -1,4 +1,3 @@
-# Paràmetres de configuració màgics
 # --- STATUS THRESHOLDS ---
 HEALTH_FUNCTIONAL = 0.80
 HEALTH_DEGRADED = 0.5
@@ -15,8 +14,8 @@ RECOATER_THICKNESS_VAR = 0.5
 RECOATER_CONTAM_MULT = 1.25
 
 # --- HEATING ELEMENT PARAMETERS ---
-HEATER_PRE_EXP_FACTOR = 0.05    # Factor A d'Arrhenius
-HEATER_ACTIVATION_ENERGY = 300.0 # Ea/R d'Arrhenius
+HEATER_PRE_EXP_FACTOR = 0.05    # A factor Arrhenius
+HEATER_ACTIVATION_ENERGY = 300.0 # Ea/R Arrhenius
 HEATER_DECAY_RATE = 0.005
 HEATER_BASE_RESISTANCE = 10.0
 HEATER_RESISTANCE_VAR = 5.0
@@ -29,16 +28,16 @@ RAIL_BASE_FRICTION = 0.1
 RAIL_FRICTION_VAR = 0.5
 
 # --- RECOATER DRIVE MOTOR PARAMETERS ---
-MOTOR_ETA = 25000.0            # Vida útil característica (Weibull)
-MOTOR_BETA = 1.5            # Desgast ràpid un cop comença a fallar
+MOTOR_ETA = 25000.0            # Characteristic life (Weibull)
+MOTOR_BETA = 1.5            # Rapid wear-out once failure begins
 MOTOR_OPTIMAL_TEMP = 30.0
 MOTOR_TEMP_STRESS_MULT = 0.02
-MOTOR_RAIL_PENALTY_MULT = 1 # Quant pateix el motor si el rail està malament
+MOTOR_RAIL_PENALTY_MULT = 1 # How much does the motor suffer if the rail is in poor condition?
 MOTOR_BASE_CURRENT = 2.5      # Amperes
-MOTOR_CURRENT_VAR = 4.0       # Augment de consum elèctric quan pateix
+MOTOR_CURRENT_VAR = 4.0       # Increased power consumption under stress
 
 # --- NOZZLE PLATE PARAMETERS ---
-NOZZLE_CASCADING_THRESH = 0.5   # Si el recoater baixa d'això, danya el nozzle
+NOZZLE_CASCADING_THRESH = 0.5   # If the recoater health drops below this level, it will damage the nozzle
 NOZZLE_INTERNAL_CONTAM_MULT = 2.0
 NOZZLE_OPTIMAL_TEMP = 25.0
 NOZZLE_TEMP_STRESS_MULT = 0.01
